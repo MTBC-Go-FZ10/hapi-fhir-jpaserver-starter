@@ -22,12 +22,6 @@ import ca.uhn.fhir.jpa.provider.r4.JpaSystemProviderR4;
 import ca.uhn.fhir.jpa.provider.r5.JpaConformanceProviderR5;
 import ca.uhn.fhir.jpa.provider.r5.JpaSystemProviderR5;
 import ca.uhn.fhir.jpa.search.DatabaseBackedPagingProvider;
-import ca.uhn.fhir.jpa.starter.interceptors.ContextInterceptor;
-import ca.uhn.fhir.jpa.starter.kafka.FHIRKafkaProducer;
-import ca.uhn.fhir.jpa.starter.utils.HttpClient;
-import ca.uhn.fhir.jpa.starter.utils.LRUCache;
-import ca.uhn.fhir.jpa.starter.interceptors.KafkaInterceptor;
-import ca.uhn.fhir.jpa.starter.interceptors.AuditEventInterceptor;
 import ca.uhn.fhir.jpa.subscription.SubscriptionInterceptorLoader;
 import ca.uhn.fhir.jpa.subscription.module.interceptor.SubscriptionDebugLogInterceptor;
 import ca.uhn.fhir.jpa.util.ResourceProviderFactory;
@@ -43,12 +37,19 @@ import ca.uhn.fhir.rest.server.interceptor.ResponseValidatingInterceptor;
 import ca.uhn.fhir.validation.IValidatorModule;
 import ca.uhn.fhir.validation.ResultSeverityEnum;
 
+import com.carecloud.fhir.hapi.stu3.CareCloudHapiProperties;
+import com.carecloud.fhir.hapi.stu3.interceptors.ContextInterceptor;
+import com.carecloud.fhir.hapi.stu3.kafka.FHIRKafkaProducer;
+import com.carecloud.fhir.hapi.stu3.utils.HttpClient;
+import com.carecloud.fhir.hapi.stu3.utils.LRUCache;
+import com.carecloud.fhir.hapi.stu3.interceptors.KafkaInterceptor;
+import com.carecloud.fhir.hapi.stu3.interceptors.AuditEventInterceptor;
+
 import java.util.*;
 
 import org.hl7.fhir.dstu3.model.Bundle;
 import org.hl7.fhir.r4.model.Bundle.BundleType;
 import org.hl7.fhir.dstu3.model.Meta;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.cors.CorsConfiguration;
@@ -85,7 +86,7 @@ public class JpaRestfulServer extends RestfulServer {
     /*
      * ResourceProviders are fetched from the Spring context
      */
-    FhirVersionEnum fhirVersion = HapiProperties.getFhirVersion();
+    FhirVersionEnum fhirVersion = CareCloudHapiProperties.getFhirVersion();
     ResourceProviderFactory resourceProviders;
     Object systemProvider;
     if (fhirVersion == FhirVersionEnum.DSTU2) {
@@ -206,7 +207,7 @@ public class JpaRestfulServer extends RestfulServer {
      * and stamps context on the resource.Meta.Tag on saves and
      * filters queries by Context.
      */
-    ContextInterceptor contextInterceptor = new ContextInterceptor(new LRUCache<String, List<String>>(HapiProperties.getCacheMaxCapacity()), new HttpClient());
+    ContextInterceptor contextInterceptor = new ContextInterceptor(new LRUCache<String, List<String>>(CareCloudHapiProperties.getCacheMaxCapacity()), new HttpClient());
     this.registerInterceptor(contextInterceptor);
 
     /*
@@ -225,12 +226,20 @@ public class JpaRestfulServer extends RestfulServer {
     this.registerInterceptor(auditEventInterceptor);
 
     /*
+     * AuditEvent interceptor generates an AuditEvent resource whenever another resource
+     * is either created or updated
+     */
+    DaoRegistry daoRegistry = appCtx.getBean(DaoRegistry.class);
+    AuditEventInterceptor auditEventInterceptor = new AuditEventInterceptor(daoRegistry);
+    this.registerInterceptor(auditEventInterceptor);
+
+    /*
      * If you are hosting this server at a specific DNS name, the server will try to
      * figure out the FHIR base URL based on what the web container tells it, but
      * this doesn't always work. If you are setting links in your search bundles that
      * just refer to "localhost", you might want to use a server address strategy:
      */
-    String serverAddress = HapiProperties.getServerAddress();
+    String serverAddress = CareCloudHapiProperties.getServerAddress();
     if (serverAddress != null && serverAddress.length() > 0) {
       setServerAddressStrategy(new HardcodedServerAddressStrategy(serverAddress));
     }

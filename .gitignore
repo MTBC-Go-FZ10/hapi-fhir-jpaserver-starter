@@ -1,6 +1,9 @@
 # Disable SonarLint files
 .idea/**/sonarlint
 
+## Carecloud specific files
+.env 
+
 #########
 # DO NOT EDIT PAST THIS POINT
 # The rest of the rules in this file are generated based on IntelliJ gitignore tool
@@ -141,7 +144,6 @@ fabric.properties
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
 
-
 ### macOS template
 # General
 .DS_Store
@@ -227,4 +229,3 @@ local.properties
 .cache-main
 .scala_dependencies
 .worksheet
-
